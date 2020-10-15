@@ -57,24 +57,24 @@ validation_error_template_lookup_safe = {
 }
 
 
-def unique_ids(validator, ui, instance, schema, id_name="id"):
+def unique_ids(validator, ui, instance, schema, id_names=["id"]):
     if ui and validator.is_type(instance, "array"):
         non_unique_ids = set()
         all_ids = set()
         for item in instance:
             try:
-                item_id = item.get(id_name)
+                item_ids = tuple(item.get(id_name) for id_name in id_names)
             except AttributeError:
                 # if item is not a dict
-                item_id = None
+                item_ids = None
             if (
-                item_id
-                and not isinstance(item_id, list)
-                and not isinstance(item_id, dict)
+                item_ids and
+                all(item_id and not isinstance(item_id, list)
+                and not isinstance(item_id, dict) for item_id in item_ids)
             ):
-                if item_id in all_ids:
-                    non_unique_ids.add(item_id)
-                all_ids.add(item_id)
+                if item_ids in all_ids:
+                    non_unique_ids.add(item_ids)
+                all_ids.add(item_ids)
             else:
                 if not uniq(instance):
                     msg = "Array has non-unique elements"
@@ -84,9 +84,12 @@ def unique_ids(validator, ui, instance, schema, id_name="id"):
                     return
 
         for non_unique_id in sorted(non_unique_ids):
-            msg = "Non-unique {} values".format(id_name)
-            err = ValidationError(msg, instance=non_unique_id)
-            err.error_id = "uniqueItems_with_{}".format(id_name)
+            if len(id_names) == 1:
+                msg = "Non-unique {} values".format(id_names[0])
+            else:
+                msg = "Non-unique combination of {} values".format(", ".join(id_names))
+            err = ValidationError(msg, instance=", ".join(non_unique_id))
+            err.error_id = "uniqueItems_with_{}".format("_".join(id_names))
             yield err
 
 
